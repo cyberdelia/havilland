@@ -1,3 +1,4 @@
+// Generic single flight
 package havilland
 
 import (
@@ -6,7 +7,7 @@ import (
 
 type Airline struct {
 	flights map[interface{}]*flight
-	sync.Mutex
+	m sync.Mutex
 }
 
 type flight struct {
@@ -17,7 +18,7 @@ type flight struct {
 
 func (a *Airline) Fly(identifier interface{}, fn func() (interface{}, error)) (interface{}, error) {
 	// Lock airspace
-	a.Lock()
+	a.m.Lock()
 
 	// Initialize flights
 	if a.flights == nil {
@@ -26,7 +27,7 @@ func (a *Airline) Fly(identifier interface{}, fn func() (interface{}, error)) (i
 
 	// If an existing flight exists reuse it
 	if f, ok := a.flights[identifier]; ok {
-		a.Unlock()
+		a.m.Unlock()
 		f.Wait()
 		return f.value, f.err
 	}
@@ -35,16 +36,16 @@ func (a *Airline) Fly(identifier interface{}, fn func() (interface{}, error)) (i
 	f := new(flight)
 	f.Add(1)
 	a.flights[identifier] = f
-	a.Unlock()
+	a.m.Unlock()
 
 	// Execute
 	f.value, f.err = fn()
 	f.Done()
 
 	// Remove flight from airspace
-	a.Lock()
+	a.m.Lock()
 	delete(a.flights, identifier)
-	a.Unlock()
+	a.m.Unlock()
 
 	return f.value, f.err
 }
